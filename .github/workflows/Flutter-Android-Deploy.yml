@@ -3,9 +3,9 @@ name: Flutter_Android_PlayStore
 
 on:
   push:
-    branches: [master]
+#    branches: [master]
   pull_request:
-    branches: [master]
+#    branches: [master]
 
 jobs:
   build_android:
