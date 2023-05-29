@@ -1,0 +1,73 @@
+
+name: Flutter_Android_PlayStore
+
+on:
+  push:
+#    branches: [master]
+  pull_request:
+#    branches: [master]
+
+jobs:
+  build_android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v3
+
+      - name: Download Android keystore
+        id: android_keystore
+        uses: timheuer/base64-to-file@v1.0.3
+        with:
+          fileName: upload-keystore.jks
+          encodedString: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
+
+      - name: Create key.properties
+        run: |
+          echo "storeFile=${{ steps.android_keystore.outputs.filePath }}" > android/key.properties
+          echo "storePassword=${{ secrets.PLAY_KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.PLAY_KEY_ALIAS_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.PLAY_KEY_ALIAS }}" >> android/key.properties
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: "12.x"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+#          flutter-version: "3.0.0"
+          channel: 'stable'
+#          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Start Android Release Build
+        run: flutter build appbundle
+
+      - name: Upload Android Release
+        uses: actions/upload-artifact@v2
+        with:
+          name: android-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  deploy_PlayStore:
+    name: Deploy .aab to Play Store
+    needs: [build_android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Get Android Build from artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: android-release-aab
+      - name: Release Build to internal track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICEACCOUNTJSONPLAINTEXT }} # make serviceAccountJsonPlainText from Google Play console acount
+          packageName: com.gamechangers.app
+          releaseFiles: app-release.aab
+          track: internal
+          status: completed
+
+
